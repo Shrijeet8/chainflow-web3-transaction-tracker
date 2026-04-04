@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChainFlow — Web3 Payment Infrastructure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<script>
+(function(){var c=["https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js","https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js","https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"],i=0;function l(){if(i>=c.length){document.getElementById('ee').style.display='flex';return;}var s=document.createElement('script');s.src=c[i++];s.onerror=l;document.head.appendChild(s);}l();})();
+</script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --void:#020407;--ink:#060c12;--surface:#0a1320;--panel:#0d1a2a;
+  --border:rgba(0,200,160,0.12);--border-hi:rgba(0,200,160,0.35);
+  --teal:#00c8a0;--teal-dim:rgba(0,200,160,0.08);--teal-glow:rgba(0,200,160,0.22);
+  --gold:#f0b429;--red:#ff4560;
+  --t1:#deeaf8;--t2:#6b8aaa;--t3:#334d66;
+  --mono:'JetBrains Mono',monospace;--disp:'Bebas Neue',sans-serif;--body:'DM Sans',sans-serif;
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--body);background:var(--void);color:var(--t1);min-height:100vh;overflow-x:hidden;cursor:crosshair}
+
+/* cursor */
+#cur{width:8px;height:8px;background:var(--teal);border-radius:50%;position:fixed;pointer-events:none;z-index:99998;mix-blend-mode:difference;transform:translate(-50%,-50%)}
+#curR{width:30px;height:30px;border:1px solid rgba(0,200,160,0.45);border-radius:50%;position:fixed;pointer-events:none;z-index:99997;transform:translate(-50%,-50%);transition:transform 0.45s cubic-bezier(0.23,1,0.32,1)}
+
+/* bg */
+.bgc{position:fixed;inset:0;z-index:0}
+.bgg{position:absolute;inset:0;background-image:linear-gradient(rgba(0,200,160,0.022) 1px,transparent 1px),linear-gradient(90deg,rgba(0,200,160,0.022) 1px,transparent 1px);background-size:56px 56px}
+.bgl{position:absolute;border-radius:50%;filter:blur(130px);pointer-events:none}
+.bgl1{width:700px;height:700px;top:-250px;left:-150px;background:rgba(0,200,160,0.06)}
+.bgl2{width:550px;height:550px;bottom:-150px;right:-100px;background:rgba(240,180,41,0.04)}
+.bgl3{width:400px;height:400px;top:45%;left:50%;transform:translate(-50%,-50%);background:rgba(0,200,160,0.035)}
+.noise{position:fixed;inset:0;z-index:1;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;opacity:0.35}
+
+.app{position:relative;z-index:2}
+
+/* error */
+#ee{display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#1a0408;border-bottom:1px solid rgba(255,69,96,0.5);color:#ff6b6b;font-family:var(--mono);font-size:12px;padding:12px 24px;align-items:center;gap:12px}
+
+/* topbar */
+.topbar{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 48px;height:66px;background:rgba(2,4,7,0.88);backdrop-filter:blur(24px);border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:14px}
+.bmark{width:38px;height:38px;border:1.5px solid var(--teal);border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--teal-dim);flex-shrink:0}
+.bname{font-family:var(--disp);font-size:27px;letter-spacing:2px;line-height:1}
+.bname span{color:var(--teal)}
+.btag{font-family:var(--mono);font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--t3);margin-top:1px}
+.tbar-r{display:flex;align-items:center;gap:14px}
+.netpill{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;color:var(--t2);background:var(--panel);border:1px solid var(--border);border-radius:40px;padding:7px 14px}
+.ndot{width:7px;height:7px;border-radius:50%;background:var(--t3)}
+.ndot.live{background:var(--teal);animation:breathe 2s ease-in-out infinite}
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:0.35}}
+.wchip{display:none;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--teal);background:var(--teal-dim);border:1px solid var(--border-hi);border-radius:40px;padding:7px 14px}
+.wchip.show{display:flex}
+.wdot{width:6px;height:6px;border-radius:50%;background:var(--teal);animation:breathe 1.8s infinite}
+.cbtn{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--void);background:var(--teal);border:none;border-radius:8px;padding:10px 22px;cursor:crosshair;transition:all 0.2s;position:relative;overflow:hidden}
+.cbtn:hover{transform:translateY(-1px);box-shadow:0 8px 28px var(--teal-glow)}
+.cbtn.connected{background:transparent;color:var(--teal);border:1px solid var(--border-hi)}
+
+/* hero */
+.hero{padding:88px 48px 64px;display:grid;grid-template-columns:1fr 430px;gap:64px;align-items:center;max-width:1300px;margin:0 auto}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:4px;text-transform:uppercase;color:var(--teal);margin-bottom:22px;display:flex;align-items:center;gap:12px}
+.eyebrow::before{content:'';display:block;width:28px;height:1px;background:var(--teal)}
+.htitle{font-family:var(--disp);font-size:clamp(56px,6.5vw,94px);line-height:0.93;letter-spacing:2px;margin-bottom:26px}
+.htitle .a{color:var(--teal)}
+.htitle .d{color:var(--t3)}
+.hdesc{font-size:15px;line-height:1.75;color:var(--t2);max-width:500px;margin-bottom:38px;font-weight:300}
+.hactions{display:flex;gap:14px;flex-wrap:wrap}
+.btn-p{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;background:var(--teal);color:var(--void);border:none;border-radius:9px;padding:14px 28px;cursor:crosshair;transition:all 0.25s;display:flex;align-items:center;gap:8px}
+.btn-p:hover{transform:translateY(-2px);box-shadow:0 14px 44px var(--teal-glow)}
+.btn-g{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;background:transparent;color:var(--t2);border:1px solid var(--border);border-radius:9px;padding:14px 28px;cursor:crosshair;transition:all 0.25s}
+.btn-g:hover{border-color:var(--border-hi);color:var(--teal)}
+
+/* hero stat card */
+.hcard{background:var(--panel);border:1px solid var(--border);border-radius:22px;padding:32px;position:relative;overflow:hidden}
+.hcard::before{content:'';position:absolute;top:0;left:0;right:0;height:1.5px;background:linear-gradient(90deg,transparent,var(--teal),transparent)}
+.hcard-ttl{font-family:var(--mono);font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--t3);margin-bottom:28px;display:flex;align-items:center;justify-content:space-between}
+.live-badge{display:flex;align-items:center;gap:6px;color:var(--teal);font-size:10px}
+.live-badge::before{content:'';display:block;width:5px;height:5px;border-radius:50%;background:var(--teal);animation:breathe 1.5s infinite}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-radius:14px;overflow:hidden;margin-bottom:22px}
+.scell{background:var(--surface);padding:20px;transition:background 0.2s}
+.scell:hover{background:rgba(10,19,32,0.95)}
+.sclbl{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--t3);margin-bottom:8px}
+.scval{font-family:var(--disp);font-size:34px;letter-spacing:1px;line-height:1;color:var(--teal)}
+.scval.n{color:var(--t1);font-size:17px;font-family:var(--mono)}
+.scval.g{color:var(--gold)}
+.cbox{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 16px;display:flex;align-items:center;gap:12px}
+.clbl{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--t3);white-space:nowrap}
+.caddr{font-family:var(--mono);font-size:11px;color:var(--teal);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.cpbtn{background:none;border:none;cursor:crosshair;color:var(--t3);padding:4px;border-radius:4px;transition:color 0.2s;flex-shrink:0}
+.cpbtn:hover{color:var(--teal)}
+
+/* features */
+.fstrip{border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.finner{max-width:1300px;margin:0 auto;padding:0 48px;display:flex}
+.fitem{flex:1;padding:26px 30px;border-right:1px solid var(--border);display:flex;align-items:center;gap:16px;transition:background 0.25s;cursor:default}
+.fitem:last-child{border-right:none}
+.fitem:hover{background:var(--teal-dim)}
+.fico{width:40px;height:40px;border-radius:10px;background:var(--teal-dim);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ftt{font-size:13px;font-weight:500;margin-bottom:3px}
+.fts{font-family:var(--mono);font-size:10px;color:var(--t3);letter-spacing:0.5px}
+
+/* main */
+.main{max-width:1300px;margin:0 auto;padding:48px 48px 88px;display:grid;grid-template-columns:390px 1fr;gap:30px;align-items:start}
+.sidebar{display:flex;flex-direction:column;gap:20px}
+
+/* card */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:20px;overflow:hidden;transition:border-color 0.25s}
+.card:hover{border-color:rgba(0,200,160,0.2)}
+.ch{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.ct{font-family:var(--disp);font-size:18px;letter-spacing:2px;display:flex;align-items:center;gap:10px}
+.ci{width:30px;height:30px;border-radius:8px;background:var(--teal-dim);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cb{padding:24px}
+
+/* wallet */
+.wvis{text-align:center;padding:28px 0 18px}
+.avar{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--teal-dim),rgba(240,180,41,0.08));border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:26px;position:relative;transition:all 0.3s}
+.avar.conn{border-color:var(--teal);box-shadow:0 0 0 5px var(--teal-dim)}
+.arp{position:absolute;inset:-8px;border:1px solid var(--teal);border-radius:50%;opacity:0}
+.avar.conn .arp{animation:rpulse 2s ease-out infinite}
+@keyframes rpulse{0%{opacity:0.6;transform:scale(1)}100%{opacity:0;transform:scale(1.5)}}
+.waddr{font-family:var(--mono);font-size:12px;color:var(--t3);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 14px;display:inline-block;transition:all 0.3s}
+.waddr.active{color:var(--teal);border-color:var(--border-hi)}
+.wcbtn{width:100%;margin-top:16px;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;background:var(--teal);color:var(--void);border:none;border-radius:10px;padding:15px;cursor:crosshair;transition:all 0.25s;display:flex;align-items:center;justify-content:center;gap:10px}
+.wcbtn:hover{box-shadow:0 8px 32px var(--teal-glow);transform:translateY(-1px)}
+.wcbtn.conn{background:var(--teal-dim);color:var(--teal);border:1px solid var(--border-hi)}
+.brow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.bbox{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px}
+.blbl{font-family:var(--mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--t3);margin-bottom:6px}
+.bval{font-family:var(--disp);font-size:26px;letter-spacing:1px;color:var(--t1);line-height:1}
+.bval.tl{color:var(--teal)}.bval.gd{color:var(--gold)}
+
+/* form */
+.ff{margin-bottom:18px}
+.fl{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--t3);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
+.fi{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--t1);font-family:var(--mono);font-size:13px;padding:14px 16px;outline:none;transition:all 0.2s}
+.fi::placeholder{color:var(--t3)}
+.fi:focus{border-color:var(--border-hi);box-shadow:0 0 0 3px var(--teal-dim)}
+.aw{position:relative}
+.aw .fi{padding-right:54px}
+.asuf{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:11px;font-weight:600;color:var(--teal);letter-spacing:1px}
+.sbtn{width:100%;margin-top:4px;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;background:linear-gradient(135deg,#00c8a0,#009e7d);color:var(--void);border:none;border-radius:10px;padding:16px;cursor:crosshair;transition:all 0.25s;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;overflow:hidden}
+.sbtn::before{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.18),transparent);transform:skewX(-20deg);transition:left 0.55s}
+.sbtn:hover::before{left:160%}
+.sbtn:hover{transform:translateY(-1px);box-shadow:0 12px 36px var(--teal-glow)}
+.sbtn:disabled{opacity:0.3;cursor:not-allowed;transform:none;box-shadow:none}
+.sbtn:disabled::before{display:none}
+.grow{display:flex;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-top:14px}
+.grlbl{font-family:var(--mono);font-size:10px;color:var(--t3);letter-spacing:1px;text-transform:uppercase}
+.grval{font-family:var(--mono);font-size:11px;color:var(--gold)}
+
+/* how it works */
+.hw-step{display:flex;gap:14px;align-items:flex-start}
+.hw-num{font-family:var(--mono);font-size:10px;color:var(--teal);background:rgba(0,200,160,0.12);border-radius:5px;padding:3px 8px;flex-shrink:0;margin-top:1px;letter-spacing:0.5px}
+.hw-txt{font-size:13px;color:var(--t2);line-height:1.6;font-weight:300}
+
+/* right col */
+.rcol{display:flex;flex-direction:column;gap:24px}
+
+/* chart */
+.charea{padding:24px}
+.chhead{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px}
+.chbig-lbl{font-family:var(--mono);font-size:10px;color:var(--t3);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
+.chbig-num{font-family:var(--disp);font-size:46px;letter-spacing:2px;color:var(--teal);line-height:1}
+.chdelta{font-family:var(--mono);font-size:11px;color:var(--teal);background:var(--teal-dim);border:1px solid var(--border-hi);border-radius:40px;padding:5px 12px}
+.chbars{display:flex;align-items:flex-end;gap:8px;height:110px}
+.chbar{flex:1;border-radius:5px 5px 0 0;background:linear-gradient(to top,var(--teal),rgba(0,200,160,0.25));min-height:4px;transition:opacity 0.2s;animation:brise 0.9s cubic-bezier(0.34,1.56,0.64,1) both}
+.chbar:hover{opacity:0.75}
+@keyframes brise{from{transform:scaleY(0);transform-origin:bottom}to{transform:scaleY(1)}}
+.chlbls{display:flex;gap:8px;margin-top:10px}
+.chlbl{flex:1;text-align:center;font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:0.5px}
+
+/* tx toolbar */
+.txtb{padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap}
+.tabs{display:flex;gap:6px}
+.tab{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);background:none;border:1px solid var(--border);border-radius:40px;padding:5px 13px;cursor:crosshair;transition:all 0.2s}
+.tab.active{background:var(--teal-dim);border-color:var(--border-hi);color:var(--teal)}
+.tab:hover:not(.active){border-color:rgba(0,200,160,0.22);color:var(--t2)}
+.txbadge{font-family:var(--mono);font-size:10px;color:var(--teal);background:var(--teal-dim);border:1px solid var(--border-hi);border-radius:40px;padding:4px 12px}
+.rfbtn{font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--t3);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 14px;cursor:crosshair;transition:all 0.2s;display:flex;align-items:center;gap:6px}
+.rfbtn:hover{color:var(--teal);border-color:var(--border-hi)}
+
+/* tx items */
+#txList{min-height:200px}
+.txi{display:grid;grid-template-columns:52px 1fr auto;align-items:center;gap:16px;padding:18px 24px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:crosshair;transition:background 0.15s;animation:txs 0.4s ease both}
+.txi:last-child{border-bottom:none}
+.txi:hover{background:rgba(0,200,160,0.03)}
+@keyframes txs{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:translateX(0)}}
+.txico{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.txico.send{background:rgba(255,69,96,0.1);border:1px solid rgba(255,69,96,0.15)}
+.txico.recv{background:rgba(0,200,160,0.1);border:1px solid rgba(0,200,160,0.15)}
+.txb{min-width:0}
+.txtype{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:4px}
+.txtype.send{color:var(--red)}.txtype.recv{color:var(--teal)}
+.txaddr{font-family:var(--mono);font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:2px}
+.txtime{font-family:var(--mono);font-size:10px;color:var(--t3);opacity:0.55}
+.txr{text-align:right;flex-shrink:0}
+.txamt{font-family:var(--disp);font-size:21px;letter-spacing:1px;line-height:1;margin-bottom:3px}
+.txamt.send{color:var(--red)}.txamt.recv{color:var(--teal)}
+.txunit{font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:2px}
+
+/* empty */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 24px;gap:12px}
+.eico{font-size:38px;opacity:0.18}
+.etxt{font-size:15px;font-weight:500;color:var(--t2)}
+.esub{font-family:var(--mono);font-size:11px;color:var(--t3)}
+
+/* spinner */
+.sp{width:18px;height:18px;border:2px solid rgba(255,255,255,0.12);border-top-color:currentColor;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* toast */
+#toast{position:fixed;bottom:28px;right:28px;z-index:9000;display:flex;flex-direction:column;gap:10px}
+.ti{display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:12px;font-family:var(--mono);font-size:12px;min-width:270px;max-width:370px;animation:tin 0.4s cubic-bezier(0.34,1.56,0.64,1) both;box-shadow:0 18px 52px rgba(0,0,0,0.55)}
+@keyframes tin{from{opacity:0;transform:translateY(14px) scale(0.93)}to{opacity:1;transform:translateY(0) scale(1)}}
+.ti.success{background:#041a12;border:1px solid rgba(0,200,160,0.4);color:#4fffcb}
+.ti.error{background:#1a040a;border:1px solid rgba(255,69,96,0.4);color:#ff7a92}
+.ti.info{background:#04101a;border:1px solid rgba(0,150,255,0.3);color:#7ec8ff}
+.ticon{font-size:16px;flex-shrink:0}
+
+/* etherscan card */
+.escard{background:linear-gradient(135deg,rgba(0,200,160,0.05),rgba(240,180,41,0.04));border:1px solid var(--border-hi) !important}
+.escard-inner{padding:22px 26px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.eslink{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--teal);text-decoration:none;background:var(--teal-dim);border:1px solid var(--border-hi);border-radius:8px;padding:12px 22px;transition:all 0.2s;display:flex;align-items:center;gap:8px}
+.eslink:hover{box-shadow:0 6px 24px rgba(0,200,160,0.2)}
+
+/* footer */
+.footer{border-top:1px solid var(--border);padding:32px 48px;max-width:1300px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px}
+.fbrand{font-family:var(--disp);font-size:20px;letter-spacing:2px;color:var(--t3)}
+.fbrand span{color:var(--teal)}
+.flinks{display:flex;gap:24px;flex-wrap:wrap}
+.flink{font-family:var(--mono);font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--t3);text-decoration:none;cursor:crosshair;transition:color 0.2s}
+.flink:hover{color:var(--teal)}
+.fcopy{font-family:var(--mono);font-size:10px;color:var(--t3);letter-spacing:1px}
+
+/* reveal */
+.rv{opacity:0;transform:translateY(22px);transition:opacity 0.65s ease,transform 0.65s ease}
+.rv.vis{opacity:1;transform:translateY(0)}
+
+@media(max-width:1050px){.hero{grid-template-columns:1fr}.main{grid-template-columns:1fr}.finner{flex-wrap:wrap}.fitem{flex:0 0 50%;border-right:none;border-bottom:1px solid var(--border)}}
+@media(max-width:640px){.topbar,.hero,.fstrip,.main,.footer{padding-left:20px;padding-right:20px}.fitem{flex:0 0 100%}.htitle{font-size:56px}}
+</style>
+</head>
+<body>
+
+<div id="ee" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#1a0408;border-bottom:1px solid rgba(255,69,96,0.5);color:#ff6b6b;font-family:monospace;font-size:12px;padding:12px 24px;align-items:center;gap:12px;">
+  <span>&#9888;</span><span><strong>ethers.js failed to load.</strong> Check internet connection, disable ad blockers, then refresh.</span>
+  <button onclick="location.reload()" style="margin-left:auto;background:#7f1d1d;border:1px solid #ef4444;color:#fca5a5;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:11px;">&#8635; Retry</button>
+</div>
+
+<div id="cur"></div>
+<div id="curR"></div>
+
+<div class="bgc"><div class="bgg"></div><div class="bgl bgl1"></div><div class="bgl bgl2"></div><div class="bgl bgl3"></div></div>
+<div class="noise"></div>
+<div id="toast"></div>
+
+<div class="app">
+
+<!-- TOPBAR -->
+<nav class="topbar">
+  <div class="brand">
+    <div class="bmark">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 1L16 5V13L9 17L2 13V5L9 1Z" stroke="#00c8a0" stroke-width="1.5" fill="rgba(0,200,160,0.18)"/><circle cx="9" cy="9" r="2.5" fill="#00c8a0"/></svg>
+    </div>
+    <div><div class="bname">CHAIN<span>FLOW</span></div><div class="btag">Web3 Payment Infrastructure</div></div>
+  </div>
+  <div class="tbar-r">
+    <div class="netpill"><span class="ndot" id="netDot"></span><span id="netBadge">Ethereum Mainnet</span></div>
+    <div class="wchip" id="walletChip"><span class="wdot"></span><span id="wChipAddr">—</span></div>
+    <button class="cbtn" id="connectBtn" onclick="safeConnect()">Connect Wallet</button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero rv">
+  <div>
+    <div class="eyebrow">Sepolia Testnet &middot; Live</div>
+    <h1 class="htitle">SEND.<br><span class="a">TRACK.</span><br><span class="d">SCALE.</span></h1>
+    <p class="hdesc">Enterprise-grade Web3 payment infrastructure. Send on-chain transactions, track in real time, and build the financial future &mdash; all from one dashboard.</p>
+    <div class="hactions">
+      <button class="btn-p" onclick="safeConnect()">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Launch App
+      </button>
+      <button class="btn-g" onclick="document.querySelector('.main').scrollIntoView({behavior:'smooth'})">View Dashboard</button>
+    </div>
+  </div>
+  <div class="hcard">
+    <div class="hcard-ttl"><span>Live Network Stats</span><span class="live-badge">Live</span></div>
+    <div class="sgrid">
+      <div class="scell"><div class="sclbl">Total Txns</div><div class="scval" id="statTotal">—</div></div>
+      <div class="scell"><div class="sclbl">Volume (ETH)</div><div class="scval g" id="statVolume">—</div></div>
+      <div class="scell"><div class="sclbl">Sent</div><div class="scval" id="statSent">—</div></div>
+      <div class="scell"><div class="sclbl">Received</div><div class="scval n" id="statRecv">—</div></div>
+    </div>
+    <div class="cbox">
+      <span class="clbl">Contract</span>
+      <span class="caddr">0x5f5cA0BCa94a90Cb845d72ba41C4A4fB4CAc9354</span>
+      <button class="cpbtn" onclick="copyCA()" title="Copy">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/><path d="M2 10V2h8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<div class="fstrip rv">
+  <div class="finner">
+    <div class="fitem"><div class="fico"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 9h14M9 2l7 7-7 7" stroke="#00c8a0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="ftt">Instant Settlement</div><div class="fts">On-chain &middot; Sepolia Testnet</div></div></div>
+    <div class="fitem"><div class="fico"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="#00c8a0" stroke-width="1.5"/><path d="M9 5v5l3 2" stroke="#00c8a0" stroke-width="1.5" stroke-linecap="round"/></svg></div><div><div class="ftt">Real-Time Tracking</div><div class="fts">7-Day History &middot; Live Chart</div></div></div>
+    <div class="fitem"><div class="fico"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2" y="5" width="14" height="10" rx="2" stroke="#00c8a0" stroke-width="1.5"/><path d="M5 5V4a4 4 0 018 0v1" stroke="#00c8a0" stroke-width="1.5"/></svg></div><div><div class="ftt">MetaMask Native</div><div class="fts">Non-custodial &middot; Self-sovereign</div></div></div>
+    <div class="fitem"><div class="fico"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9l4 4 8-8" stroke="#00c8a0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="ftt">Verified Contract</div><div class="fts">Sourcify &middot; Exact Match</div></div></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="main">
+  <div class="sidebar">
+
+    <!-- Wallet card -->
+    <div class="card rv">
+      <div class="ch"><div class="ct"><div class="ci"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="4" width="12" height="9" rx="2" stroke="#00c8a0" stroke-width="1.2"/><path d="M4 4V3a3 3 0 016 0v1" stroke="#00c8a0" stroke-width="1.2"/></svg></div>WALLET</div></div>
+      <div class="cb" style="padding-top:0">
+        <div class="wvis">
+          <div class="avar" id="avatarRing"><div class="arp"></div><span>&#128100;</span></div>
+          <div class="waddr" id="walletAddr">Not Connected</div>
+        </div>
+        <button class="wcbtn" id="walletConnectBtn" onclick="safeConnect()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1l6 3.5V10L7 13.5 1 10V4.5L7 1z" stroke="currentColor" stroke-width="1.2" fill="rgba(0,0,0,0.2)"/></svg>
+          Connect Wallet
+        </button>
+        <div class="brow">
+          <div class="bbox"><div class="blbl">Sent</div><div class="bval tl" id="sideStatSent">—</div></div>
+          <div class="bbox"><div class="blbl">Received</div><div class="bval gd" id="sideStatRecv">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Send card -->
+    <div class="card rv">
+      <div class="ch">
+        <div class="ct"><div class="ci"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M7 1l6 6-6 6" stroke="#00c8a0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>SEND</div>
+        <span style="font-family:var(--mono);font-size:9px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase">Sepolia ETH</span>
+      </div>
+      <div class="cb">
+        <div class="ff"><label class="fl">Recipient Address<span style="color:var(--teal);font-size:9px">Required</span></label><input class="fi" id="to" placeholder="0x..." autocomplete="off" spellcheck="false"></div>
+        <div class="ff"><label class="fl">Amount<span style="color:var(--t3)">Balance: 0.048 ETH</span></label><div class="aw"><input class="fi" id="amount" type="number" placeholder="0.000" min="0" step="any"><span class="asuf">ETH</span></div></div>
+        <button class="sbtn" id="sendBtn" onclick="sendTx()" disabled>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Broadcast Transaction
+        </button>
+        <div class="grow"><span class="grlbl">Est. Network Fee</span><span class="grval">~0.00012 ETH</span></div>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="card rv" style="background:var(--teal-dim);border-color:var(--border-hi)">
+      <div class="cb" style="padding:22px 24px">
+        <div style="font-family:var(--mono);font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--teal);margin-bottom:16px">How It Works</div>
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="hw-step"><span class="hw-num">01</span><span class="hw-txt">Connect your MetaMask. We auto-switch to Sepolia Testnet for you.</span></div>
+          <div class="hw-step"><span class="hw-num">02</span><span class="hw-txt">Enter a recipient address and ETH amount. Transactions record on-chain permanently.</span></div>
+          <div class="hw-step"><span class="hw-num">03</span><span class="hw-txt">Track all activity in real time. History is fetched directly from the blockchain.</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right col -->
+  <div class="rcol">
+
+    <!-- Chart -->
+    <div class="card rv">
+      <div class="ch"><div class="ct"><div class="ci"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 11l3-3 3 2 4-5 2 1" stroke="#00c8a0" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>ACTIVITY</div><span class="txbadge" id="chartDelta">7-day window</span></div>
+      <div class="charea">
+        <div class="chhead">
+          <div><div class="chbig-lbl">Total Transactions</div><div class="chbig-num" id="chartBigNum">—</div></div>
+        </div>
+        <div class="chbars" id="chartBars"></div>
+        <div class="chlbls" id="chartLabels"></div>
+      </div>
+    </div>
+
+    <!-- Tx history -->
+    <div class="card rv">
+      <div class="ch">
+        <div class="ct"><div class="ci"><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="12" height="12" rx="2" stroke="#00c8a0" stroke-width="1.2"/><path d="M4 5h6M4 7h4M4 9h5" stroke="#00c8a0" stroke-width="1.2" stroke-linecap="round"/></svg></div>HISTORY</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="txbadge" id="txCount">0 records</span>
+          <button class="rfbtn" onclick="loadTransactions()">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M10 3C9 1.5 7.3 0.5 5.5 0.5 2.5 0.5 0.5 2.8 0.5 6M2 9C3 10.5 4.7 11.5 6.5 11.5 9.5 11.5 11.5 9.2 11.5 6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M8 3h2V1M4 9H2v2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div class="txtb">
+        <div class="tabs">
+          <button class="tab active" onclick="filterTx('all',this)">All</button>
+          <button class="tab" onclick="filterTx('sent',this)">Sent</button>
+          <button class="tab" onclick="filterTx('received',this)">Received</button>
+        </div>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--t3)">Click row for Etherscan</span>
+      </div>
+      <div id="txList">
+        <div class="empty"><div class="eico">&#11046;</div><div class="etxt">No transactions yet</div><div class="esub">Connect your wallet to begin</div></div>
+      </div>
+    </div>
+
+    <!-- Etherscan -->
+    <div class="card rv escard">
+      <div class="escard-inner">
+        <div>
+          <div style="font-family:var(--disp);font-size:20px;letter-spacing:2px;margin-bottom:5px">VERIFY ON ETHERSCAN</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--t3)">View your transactions on the public block explorer</div>
+        </div>
+        <a class="eslink" href="https://sepolia.etherscan.io/address/0x5f5cA0BCa94a90Cb845d72ba41C4A4fB4CAc9354" target="_blank">
+          Open Etherscan
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 10L10 2M10 2H5M10 2V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="fbrand">CHAIN<span>FLOW</span></div>
+  <div class="flinks">
+    <a class="flink" href="https://sepolia.etherscan.io/address/0x5f5cA0BCa94a90Cb845d72ba41C4A4fB4CAc9354" target="_blank">Contract</a>
+    <a class="flink" href="https://sourcify.dev/#/lookup/0x5f5cA0BCa94a90Cb845d72ba41C4A4fB4CAc9354" target="_blank">Verified Source</a>
+    <a class="flink" href="https://sepoliafaucet.com" target="_blank">Get Test ETH</a>
+    <a class="flink" href="https://sepolia.dev" target="_blank">Sepolia Docs</a>
+  </div>
+  <div class="fcopy">Built on Ethereum &middot; Sepolia 2026</div>
+</footer>
+
+</div>
+
+<script>
+let provider,signer,contract,walletAddress,allTxs=[],currentFilter='all';
+const CA="0x5f5cA0BCa94a90Cb845d72ba41C4A4fB4CAc9354";
+const SID=11155111,SHEX="0xaa36a7";
+const ABI=["function createTransaction(address _to, uint _amount)","function getAllTransactions() view returns (tuple(address sender,address receiver,uint amount,uint timestamp)[])"];
+
+/* cursor */
+const c=document.getElementById('cur'),r=document.getElementById('curR');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;c.style.left=mx+'px';c.style.top=my+'px';});
+(function animR(){rx+=(mx-rx)*0.1;ry+=(my-ry)*0.1;r.style.left=rx+'px';r.style.top=ry+'px';requestAnimationFrame(animR);})();
+
+/* scroll reveal */
+const obs=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('vis');obs.unobserve(e.target);}}),{threshold:0.08});
+document.querySelectorAll('.rv').forEach(el=>obs.observe(el));
+
+function toast(msg,type='info',icon='i'){
+  const w=document.getElementById('toast'),el=document.createElement('div');
+  el.className='ti '+type;el.innerHTML='<span class="ticon">'+icon+'</span>'+msg;
+  w.appendChild(el);setTimeout(()=>el.remove(),4500);
+}
+
+function copyCA(){navigator.clipboard.writeText(CA).then(()=>toast('Contract address copied!','success','&#10003;'));}
+
+async function switchToSepolia(){
+  try{await window.ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:SHEX}]});return true;}
+  catch(e){
+    if(e.code===4902){
+      try{await window.ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:SHEX,chainName:'Sepolia Testnet',nativeCurrency:{name:'SepoliaETH',symbol:'ETH',decimals:18},rpcUrls:['https://rpc.sepolia.org'],blockExplorerUrls:['https://sepolia.etherscan.io']}]});return true;}
+      catch{return false;}
+    }
+    return false;
+  }
+}
+
+function safeConnect(){
+  if(typeof ethers==='undefined'){
+    const btn=document.getElementById('connectBtn');
+    btn.innerHTML='<div class="sp"></div>';btn.disabled=true;
+    let att=0,iv=setInterval(()=>{att++;
+      if(typeof ethers!=='undefined'){clearInterval(iv);btn.innerHTML='Connect Wallet';btn.disabled=false;connectWallet();}
+      else if(att>50){clearInterval(iv);btn.innerHTML='Connect Wallet';btn.disabled=false;document.getElementById('ee').style.display='flex';}
+    },100);return;
+  }
+  connectWallet();
+}
+
+async function connectWallet(){
+  if(!window.ethereum){toast('Install MetaMask first','error','&#128294;');return;}
+  const btn=document.getElementById('connectBtn'),wbtn=document.getElementById('walletConnectBtn');
+  btn.innerHTML='<div class="sp"></div>';btn.disabled=true;
+  try{
+    provider=new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts",[]);
+    let net=await provider.getNetwork();
+    if(net.chainId!==SID){
+      toast('Switching to Sepolia...','info','&#9881;');
+      const ok=await switchToSepolia();
+      if(!ok){toast('Please switch to Sepolia in MetaMask','error','&#9888;');btn.innerHTML='Connect Wallet';btn.disabled=false;return;}
+      provider=new ethers.providers.Web3Provider(window.ethereum);
+    }
+    signer=provider.getSigner();walletAddress=await signer.getAddress();
+    contract=new ethers.Contract(CA,ABI,signer);
+    const sh=walletAddress.slice(0,8)+'...'+walletAddress.slice(-6);
+    btn.innerHTML='&#10003; '+sh;btn.classList.add('connected');btn.disabled=false;
+    document.getElementById('netBadge').textContent='Sepolia Testnet';
+    document.getElementById('netDot').classList.add('live');
+    document.getElementById('walletChip').classList.add('show');
+    document.getElementById('wChipAddr').textContent=sh;
+    document.getElementById('walletAddr').textContent=sh;
+    document.getElementById('walletAddr').classList.add('active');
+    const av=document.getElementById('avatarRing');av.classList.add('conn');av.innerHTML='<div class="arp"></div>&#129001;';
+    wbtn.innerHTML='&#10003; Connected &middot; '+sh;wbtn.classList.add('conn');
+    document.getElementById('sendBtn').disabled=false;
+    toast('Wallet connected! Loading chain data...','success','&#128640;');
+    loadTransactions();
+  }catch(err){
+    console.error(err);
+    toast('Connection failed: '+(err.message||'Unknown').slice(0,60),'error','&#10060;');
+    btn.innerHTML='Connect Wallet';btn.disabled=false;
+  }
+}
+
+async function sendTx(){
+  const to=document.getElementById('to').value.trim(),amt=document.getElementById('amount').value.trim();
+  if(!to||!amt){toast('Fill all fields','error','&#9888;');return;}
+  if(!ethers.utils.isAddress(to)){toast('Invalid Ethereum address','error','&#9888;');return;}
+  const btn=document.getElementById('sendBtn');
+  btn.innerHTML='<div class="sp"></div> Broadcasting...';btn.disabled=true;
+  try{
+    const tx=await contract.createTransaction(to,ethers.utils.parseEther(amt));
+    toast('Transaction sent &mdash; awaiting confirmation...','info','&#9203;');
+    await tx.wait();
+    toast('Confirmed! Hash: '+tx.hash.slice(0,10)+'...','success','&#10003;');
+    document.getElementById('to').value='';document.getElementById('amount').value='';
+    loadTransactions();
+  }catch(err){
+    console.error(err);
+    toast('Failed: '+(err.reason||err.message||'Unknown').slice(0,70),'error','&#10060;');
+  }finally{
+    btn.innerHTML='<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 7h12M7 1l6 6-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Broadcast Transaction';
+    btn.disabled=false;
+  }
+}
+
+async function loadTransactions(){
+  if(!contract)return;
+  const list=document.getElementById('txList');
+  list.innerHTML='<div class="empty"><div class="sp" style="width:26px;height:26px;color:var(--teal)"></div><div class="esub">Fetching from Sepolia blockchain...</div></div>';
+  try{
+    const data=await contract.getAllTransactions();
+    allTxs=[...data].reverse();
+    updateStats();buildChart(allTxs);renderTxs(allTxs);
+  }catch(err){
+    console.error(err);
+    list.innerHTML='<div class="empty"><div class="eico">&#9888;</div><div class="etxt">Failed to load</div><div class="esub">'+(err.message||'').slice(0,80)+'</div></div>';
+    toast('Failed to load transactions','error','&#10060;');
+  }
+}
+
+function updateStats(){
+  let sent=0,recv=0,vol=0;
+  allTxs.forEach(tx=>{
+    if(tx.sender.toLowerCase()===walletAddress.toLowerCase())sent++;else recv++;
+    vol+=parseFloat(ethers.utils.formatEther(tx.amount));
+  });
+  document.getElementById('statTotal').textContent=allTxs.length;
+  document.getElementById('statVolume').textContent=vol.toFixed(4);
+  document.getElementById('statSent').textContent=sent;
+  document.getElementById('statRecv').textContent=recv;
+  document.getElementById('sideStatSent').textContent=sent;
+  document.getElementById('sideStatRecv').textContent=recv;
+  document.getElementById('txCount').textContent=allTxs.length+' records';
+  document.getElementById('chartBigNum').textContent=allTxs.length;
+}
+
+function filterTx(type,el){
+  currentFilter=type;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active');
+  let f=allTxs;
+  if(type==='sent')f=allTxs.filter(t=>t.sender.toLowerCase()===walletAddress.toLowerCase());
+  else if(type==='received')f=allTxs.filter(t=>t.receiver.toLowerCase()===walletAddress.toLowerCase());
+  document.getElementById('txCount').textContent=f.length+' records';
+  renderTxs(f);
+}
+
+function renderTxs(txs){
+  const list=document.getElementById('txList');
+  if(!txs.length){list.innerHTML='<div class="empty"><div class="eico">&#11046;</div><div class="etxt">No transactions</div><div class="esub">Send your first transaction above</div></div>';return;}
+  list.innerHTML='';
+  txs.forEach((tx,i)=>{
+    const isSend=tx.sender.toLowerCase()===walletAddress.toLowerCase();
+    const eth=parseFloat(ethers.utils.formatEther(tx.amount)).toFixed(6);
+    const t=new Date(tx.timestamp*1000).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+    const cp=isSend?tx.receiver:tx.sender;
+    const sh=cp.slice(0,10)+'...'+cp.slice(-6);
+    const type=isSend?'send':'recv';
+    const row=document.createElement('div');
+    row.className='txi';row.style.animationDelay=(i*0.04)+'s';
+    row.onclick=()=>window.open('https://sepolia.etherscan.io/address/'+cp,'_blank');
+    row.innerHTML=
+      '<div class="txico '+type+'">'+(isSend?'📤':'📥')+'</div>'+
+      '<div class="txb"><div class="txtype '+type+'">'+(isSend?'&#8593; SENT':'&#8595; RECEIVED')+'</div><div class="txaddr">'+(isSend?'To: ':'From: ')+sh+'</div><div class="txtime">'+t+'</div></div>'+
+      '<div class="txr"><div class="txamt '+type+'">'+(isSend?'&minus;':'+')+eth+'</div><div class="txunit">ETH</div></div>';
+    list.appendChild(row);
+  });
+}
+
+function buildChart(txs){
+  const bars=document.getElementById('chartBars'),labels=document.getElementById('chartLabels');
+  const days=[],counts=[];
+  for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(d.toLocaleDateString('en-US',{weekday:'short'}));counts.push(txs.filter(t=>new Date(t.timestamp*1000).toDateString()===d.toDateString()).length);}
+  const max=Math.max(...counts,1);
+  const tw=counts.reduce((a,b)=>a+b,0);
+  document.getElementById('chartDelta').textContent=tw+' this week';
+  bars.innerHTML=counts.map((c,i)=>'<div class="chbar" style="height:'+Math.max((c/max)*100,3)+'%;animation-delay:'+(i*0.09)+'s" title="'+days[i]+': '+c+' txns"></div>').join('');
+  labels.innerHTML=days.map(d=>'<div class="chlbl">'+d+'</div>').join('');
+}
+
+if(window.ethereum){window.ethereum.on('accountsChanged',()=>location.reload());window.ethereum.on('chainChanged',()=>location.reload());}
+
+buildChart([]);
+</script>
+</body>
+</html>
