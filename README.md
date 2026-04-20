@@ -20,16 +20,6 @@
 
 ---
 
-## 📸 Screenshots
-
-### 🏠 Main Interface
-![Main App](./screenshots/demo1.png)
-
-### 📊 Dashboard
-![Dashboard](./screenshots/demo2.png)
-
----
-
 ## 🧠 Why this project exists
 
 Most beginner dApps stop at:
